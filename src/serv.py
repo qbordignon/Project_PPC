@@ -1,3 +1,4 @@
+#Classe serveur
 def update():
     for m in mqueues:
         m.send(state, c)
