@@ -1,4 +1,10 @@
 #Classe serveur
+
+from multiprocessing import *
+from multiprocessing.sharedctypes import *
+from player import Player
+
+
 def update():
     for m in mqueues:
         m.send(state, c)
@@ -18,8 +24,9 @@ def confirm(state, card):
         
 
 if __name__ == "__main__" :
-    draw = RawArray(Draw, Draw.generate_draw())
-    mutex = RawValue(Lock, Lock())
+    draw = RawArray([], Card.generate_draw())
+    # mutex = RawValue(Lock, Lock())
+    mutex = Lock()
     finished = False
     p1 = Player(draw, mutex, 1)
     p2 = Player(draw, mutex, 2)
