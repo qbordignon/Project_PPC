@@ -6,7 +6,7 @@ from player import Player
 from card import *
 import sysv_ipc
 import sys
-import socket
+# import socket
 
 draw = []
 state = None
@@ -38,6 +38,7 @@ if __name__ == "__main__" :
     # draw = RawArray([], generate_draw())
     # mutex = RawValue(Lock, Lock())
     draw = generate_draw()
+
     mutex = Lock()
     finished = False
     p1 = Player(draw, mutex, 532)
