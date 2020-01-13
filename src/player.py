@@ -3,6 +3,9 @@ import signal
 import time
 import sys
 from multiprocessing import Process
+import sysv_ipc
+import socket
+import subprocess
 
 
 class Player(Process):
@@ -35,7 +38,10 @@ class Player(Process):
         print("Jouez !")
 
     def run(self):
-        mq = MessageQueue(self.id)
+        # pid = subprocess.Popen(args=[
+    # "gnome-terminal"]).pid
+        # print(pid)
+        mq = sysv_ipc.MessageQueue(self.id)
         while True:
             state, c = mq.receive() #Après premier envoi du serveur (à affiner)
 
