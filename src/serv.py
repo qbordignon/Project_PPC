@@ -3,6 +3,8 @@
 from multiprocessing import *
 from multiprocessing.sharedctypes import *
 from player import Player
+import sysv_ipc
+import sys
 
 
 def update():
@@ -28,13 +30,18 @@ if __name__ == "__main__" :
     # mutex = RawValue(Lock, Lock())
     mutex = Lock()
     finished = False
-    p1 = Player(draw, mutex, 1)
-    p2 = Player(draw, mutex, 2)
+    p1 = Player(draw, mutex, 532)
+    p2 = Player(draw, mutex, 867)
     players = [p1, p2]
     mqueues = []
     for p in players:
         p.start()
-        mqueues.append(MessageQueue(p.id, IPC_CREAT))
+        try:
+            mqueues.append(sysv_ipc.MessageQueue(p.id, IPC_CREX))
+        except ExistentialError:
+            print("Message queue", key, "already exists, terminating.")
+            sys.exit(1)
+        
     
     state = draw.value.popleft()
 
