@@ -3,17 +3,25 @@ import signal
 import time
 import sys
 from multiprocessing import Process
+from threading import Thread
 import sysv_ipc
 # import socket
 import subprocess
+import os
+from card import string_to_card
+import tkinter
 
+k = -1
 
 class Player(Process):
-    def __init__(self, draw, mutex, id):
+    def __init__(self, draw, mutex, id, bmq_key):
         super().__init__()
         self.mutex = mutex
         self.draw = draw
         self.id = id
+        self.bmq_key = bmq_key
+        self.board_mq = sysv_ipc.MessageQueue(self.bmq_key)
+
         self.hand = []
         for i in range(0,5):
             self.draw_card()
@@ -21,7 +29,7 @@ class Player(Process):
     def draw_card(self):
         self.hand.append(self.draw.pop(0))
 
-    def handler(self, sig, frame):
+    def handler_int(self, sig, frame):
         if sig == signal.SIGINT:
             if len(self.hand) == 0:
                 print("Victoire")
@@ -34,24 +42,66 @@ class Player(Process):
         print(state)
         print("Main :")
         print(self.hand)
-        print(range(1, len(self.hand)))
+        nums = ""
+        for i in range(1, len(self.hand) + 1):
+            nums += ("  " + str(i))
+        print(nums)
         print("Jouez !")
+
+    def next_move(self):
+        global k
+        print("Entrez la position de la carte à jouer: ")
+        k = -1
+        while k < 1 and k >= len(self.hand):
+            try:
+                k = int(input("> "))
+            except ValueError:
+                print("Invalide, un entier était attendu")
+        os.kill(os.getpid(), signal.SIGCHLD)
+
+        
+    def handler_chld(self, sig, frame):
+        if sig == signal.SIGCHLD:
+            global k
+            data = str(self.hand[k - 1]) + " " + str(self.id)
+            message = data.encode()
+            self.board_mq.send(message)
+
+
 
     def run(self):
     # "gnome-terminal"]).pid
         # print(pid)
-        mq = sysv_ipc.MessageQueue(self.id)
+        signal.signal(signal.SIGINT, self.handler_int)
+        signal.signal(signal.SIGCHLD, self.handler_chld)
+        my_mq = sysv_ipc.MessageQueue(100 + self.id)
+
         while True:
-                draw_card()
+            #while my_mq.empty():
+            #    continue
 
-            t = Thread(target = display, args = (state,))
-            t.start()
+            message, t = my_mq.receive()
+            data = message.decode()
             
-            k = wait_next_key_strike()
+            if bool(data) == False:
+                self.draw_card()
+            else:
+                state = string_to_card(data)
+                for c in self.hand:
+                    if c == state:
+                        hand.remove(c)
+            
+            display_t = Thread(target = self.display, args = (state,))
+            display_t.start()
 
-            with mutex:
-                mq.send(self.hand[k-1])
+            play_t = Thread(target=self.next_move)
+            play_t.start()
+
+            # k = None # LA CARTE SELECTIONNEE
+
+            # with mutex:
+            #    mq.send(self.hand[k-1])
 
             #Libération des autres process sans qu'ils ne jouent
 
-            t.join()
+            display_t.join()

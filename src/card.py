@@ -1,5 +1,8 @@
 import random
 
+colors = ["R", "B"]
+values = range(1, 11)
+
 
 class Card():
     def __init__(self, value, color):
@@ -16,21 +19,25 @@ class Card():
             return False
 
     def __str__(self):
-        return str(self.value) + " " + self.color
+        return str(self.value) + self.color
+
+    
 
 def generate_draw():
     draw = []
     for i in range(1, 11):
-        draw.append(Card(i, "Rouge"))
+        draw.append(Card(i, "R"))
     for j in range(1, 11):
-        draw.append(Card(j, "Bleu"))
+        draw.append(Card(j, "B"))
     random.shuffle(draw)
     return draw
 
+def string_to_card(string):
+        return Card(string[0], string[1])
 
 
 if __name__ == "__main__":
-    card_1 = Card(3, "Rouge")
-    card_2 = Card(1, "Rouge")
+    card_1 = Card(3, "R")
+    card_2 = Card(1, "R")
     print(card_1.is_valid(card_2))
     draw = generate_draw()
