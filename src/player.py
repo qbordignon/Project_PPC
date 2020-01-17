@@ -41,10 +41,12 @@ class Player(Process):
     def display(self, state):
         print(state)
         print("Main :")
-        print(self.hand)
+        for c in self.hand:
+            print(c, end=' ')
+        print("")
         nums = ""
         for i in range(1, len(self.hand) + 1):
-            nums += ("  " + str(i))
+            nums += (" " + str(i))
         print(nums)
         print("Jouez !")
 
