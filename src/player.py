@@ -14,8 +14,9 @@ import tkinter
 k = -1
 
 class Player(Process):
-    def __init__(self, draw, mutex, id, bmq_key):
+    def __init__(self, conn, draw, mutex, id, bmq_key):
         super().__init__()
+        self.conn = conn
         self.mutex = mutex
         self.draw = draw
         self.id = id
@@ -39,7 +40,7 @@ class Player(Process):
             sys.exit()
 
     def display(self, state):
-        print(state)
+        self.conn.send(str(state).encode())
         print("Main :")
         for c in self.hand:
             print(c, end=' ')
@@ -81,10 +82,9 @@ class Player(Process):
         while True:
             #while my_mq.empty():
             #    continue
-
             message, t = my_mq.receive()
             data = message.decode()
-            
+            print(data)
             if bool(data) == False:
                 self.draw_card()
             else:
@@ -95,9 +95,10 @@ class Player(Process):
             
             display_t = Thread(target = self.display, args = (state,))
             display_t.start()
-
+            '''
             play_t = Thread(target=self.next_move)
             play_t.start()
+            '''
 
             # k = None # LA CARTE SELECTIONNEE
 

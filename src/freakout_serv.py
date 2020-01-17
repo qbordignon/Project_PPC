@@ -20,32 +20,33 @@ NB_PLAYERS = 2
 
 
 # Fonction de rafraîchissement
-def update():
-    global draw
-    global state
-    global pmqueues
-    global bmqueue
-    # Envoie l'état du board
-    
-    for m in pmqueues:
-        m.send(str(state).encode())
+def update(finished):
+    while not finished:
+        global draw
+        global state
+        global pmqueues
+        global bmqueue
 
-    # Attendre une réponse
-    # while bmqueue.empty():
-    #   continue
+        # Envoie l'état du board
+        for m in pmqueues:
+            m.send(str(state).encode())
 
-    message, t = bmqueue.receive()
-    data = message.decode()
-    array = data.split(" ")
-    player_id = int(array[1])
-    card = string_to_card(array[0])
+        # A adapter
+        '''
+        message, t = bmqueue.receive()
+        data = message.decode()
+        print(data)
+        array = data.split(" ")
+        player_id = int(array[1])
+        card = string_to_card(array[0])
 
-    if confirm(state, card): # Fonction de validation à coder
-        state = card
-    else:
-        ok = False
-        message = str(ok).encode()
-        pmqueues[player_id - 1].send(message)
+        if confirm(state, card): # Fonction de validation à coder
+            state = card
+        else:
+            ok = False
+            message = str(ok).encode()
+            pmqueues[player_id - 1].send(message)
+        '''
 
 
     
@@ -54,13 +55,24 @@ def update():
 def confirm(state, card):
     return state.value == card.value or ((state.value - 1 == card.value or state.value + 1 == card.value) and state.color == card.color)
 
-def connection_handler(conn, addr, conn_nbr, *mutex):
+def connection_handler(conn, addr, conn_nbr, mutex, players, pmqueues):
     from_client = b''
     global ID_LAST_PLAYER
     global draw
     global bmqkey
     ID_LAST_PLAYER += 1
-    player = Player(draw, mutex, ID_LAST_PLAYER, bmqkey)
+    player = Player(conn, draw, mutex, ID_LAST_PLAYER, bmqkey)
+    players.append(player)
+
+    try:
+        pmqueues.append(sysv_ipc.MessageQueue(100 + player.id, sysv_ipc.IPC_CREX))
+    except sysv_ipc.ExistentialError:
+        print("Message queue", 100 + player.id, "already exists, terminating.")
+        return -1
+
+    player.start()
+
+    
     '''
     while True:
         data = conn.recv(4096)
@@ -72,6 +84,17 @@ def connection_handler(conn, addr, conn_nbr, *mutex):
     conn.close()
     print('Client ' + str(conn_nbr) + ' disconnected')
     '''
+
+def close(pmqueues, bmqueue):
+    key = ''
+    while key != 'q':
+        key = str(input("Press q to shutdown server.\n>"))
+
+    # Fermeture des queues de message
+    for mq in pmqueues:
+        mq.remove()
+    bmqueue.remove()
+    sys.exit(1) # FERMER LE SERV PROPREMENT
         
 
 if __name__ == "__main__" :
@@ -81,6 +104,9 @@ if __name__ == "__main__" :
     mutex = Lock()
     # Bool de fin de partie
     finished = False
+    
+    players = []
+    pmqueues = []
 
     # Initialise le board 
     state = draw.pop(0)
@@ -91,6 +117,12 @@ if __name__ == "__main__" :
         print("Message queue", bmqkey, "already exists, terminating.")
         sys.exit(1)
 
+    closer = Thread(target=close, args=(pmqueues, bmqueue))
+    closer.start()
+
+    refresh = Thread(target=update, args=(finished,))
+    refresh.start()
+
     conn_nbr = 0
     serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serv.bind(('0.0.0.0', 8080))
@@ -99,17 +131,17 @@ if __name__ == "__main__" :
         conn, addr = serv.accept()
         conn_nbr += 1
         print("Client " + str(conn_nbr) + " connected.")
-        handler = Thread(target=connection_handler, args=(conn, addr, conn_nbr, mutex))
+        handler = Thread(target=connection_handler, args=(conn, addr, conn_nbr, mutex, players, pmqueues))
         handler.start()
     # Imaginons : 2 joueurs
     '''
-    players = []
+    
     for i in range(0, NB_PLAYERS):
         ID_LAST_PLAYER += 1
         players.append(Player(draw, mutex, ID_LAST_PLAYER, bmqkey))
 
     # Tableau de queues de messages (une par joueur)
-    pmqueues = []
+    
     # Création d'une queue de message par joueur
     for p in players:
         p.start()
