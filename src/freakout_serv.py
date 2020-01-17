@@ -6,7 +6,8 @@ from player import Player
 from card import *
 import sysv_ipc
 import sys
-# import socket
+import socket
+from threading import Thread
 
 draw = []
 state = None
@@ -52,13 +53,28 @@ def update():
 # Une fonction permettant de valider ou d'invalider un coup
 def confirm(state, card):
     return state.value == card.value or ((state.value - 1 == card.value or state.value + 1 == card.value) and state.color == card.color)
+
+def connection_handler(conn, addr, conn_nbr, *mutex):
+    from_client = b''
+    global ID_LAST_PLAYER
+    global draw
+    global bmqkey
+    ID_LAST_PLAYER += 1
+    player = Player(draw, mutex, ID_LAST_PLAYER, bmqkey)
+    '''
+    while True:
+        data = conn.recv(4096)
+        if not data: break
+        from_client += data
+        print(from_client)
+        time.sleep(10)
+        conn.send(b'I am SERVER\n')
+    conn.close()
+    print('Client ' + str(conn_nbr) + ' disconnected')
+    '''
         
 
 if __name__ == "__main__" :
-    # Unhashable type : list
-    # draw = RawArray([], generate_draw())
-    # mutex = RawValue(Lock, Lock())
-
     # Crée la pioche
     draw = generate_draw()
     # Verrou pour droit de jouer
@@ -66,13 +82,27 @@ if __name__ == "__main__" :
     # Bool de fin de partie
     finished = False
 
+    # Initialise le board 
+    state = draw.pop(0)
+
     try:
         bmqueue = sysv_ipc.MessageQueue(bmqkey, sysv_ipc.IPC_CREX)
     except sysv_ipc.ExistentialError:
         print("Message queue", bmqkey, "already exists, terminating.")
         sys.exit(1)
 
+    conn_nbr = 0
+    serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    serv.bind(('0.0.0.0', 8080))
+    serv.listen(5)
+    while True:
+        conn, addr = serv.accept()
+        conn_nbr += 1
+        print("Client " + str(conn_nbr) + " connected.")
+        handler = Thread(target=connection_handler, args=(conn, addr, conn_nbr, mutex))
+        handler.start()
     # Imaginons : 2 joueurs
+    '''
     players = []
     for i in range(0, NB_PLAYERS):
         ID_LAST_PLAYER += 1
@@ -88,9 +118,7 @@ if __name__ == "__main__" :
         except sysv_ipc.ExistentialError:
             print("Message queue", 100 + p.id, "already exists, terminating.")
             sys.exit(1)
-
-    # Initialise le board 
-    state = draw.pop(0)
+    '''
 
     # Fonction de rafrâichissement
     while not finished:
