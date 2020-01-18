@@ -39,8 +39,13 @@ class Player(Process):
             time.sleep(5)
             sys.exit()
 
-    def display(self, state):
+    def notify(self, state):
         self.conn.send(str(state).encode())
+        str_hand = ""
+        for c in self.hand:
+            str_hand += str(c) + "   "
+        self.conn.send(str_hand.encode())
+        '''
         print("Main :")
         for c in self.hand:
             print(c, end=' ')
@@ -50,6 +55,7 @@ class Player(Process):
             nums += (" " + str(i))
         print(nums)
         print("Jouez !")
+        '''
 
     def next_move(self):
         global k
@@ -93,8 +99,9 @@ class Player(Process):
                     if c == state:
                         hand.remove(c)
             
-            display_t = Thread(target = self.display, args = (state,))
-            display_t.start()
+            notify_t = Thread(target = self.notify, args = (state,))
+            notify_t.start()
+            time.sleep(5)
             '''
             play_t = Thread(target=self.next_move)
             play_t.start()
@@ -107,4 +114,4 @@ class Player(Process):
 
             #Libération des autres process sans qu'ils ne jouent
 
-            display_t.join()
+            notify_t.join()

@@ -8,6 +8,8 @@ import sysv_ipc
 import sys
 import socket
 from threading import Thread
+import os
+import signal
 
 draw = []
 state = None
@@ -85,15 +87,21 @@ def connection_handler(conn, addr, conn_nbr, mutex, players, pmqueues):
     print('Client ' + str(conn_nbr) + ' disconnected')
     '''
 
-def close(pmqueues, bmqueue):
+def shutdown(connections, pmqueues, bmqueue):
     key = ''
     while key != 'q':
         key = str(input("Press q to shutdown server.\n>"))
+
+    # Fermeture des connexions
+    for conn in connections:
+        conn.close()
 
     # Fermeture des queues de message
     for mq in pmqueues:
         mq.remove()
     bmqueue.remove()
+
+    os.kill(os.getpid(), signal.SIGINT)
     sys.exit(1) # FERMER LE SERV PROPREMENT
         
 
@@ -105,6 +113,7 @@ if __name__ == "__main__" :
     # Bool de fin de partie
     finished = False
     
+    connections = []
     players = []
     pmqueues = []
 
@@ -117,18 +126,18 @@ if __name__ == "__main__" :
         print("Message queue", bmqkey, "already exists, terminating.")
         sys.exit(1)
 
-    closer = Thread(target=close, args=(pmqueues, bmqueue))
-    closer.start()
+    sd = Thread(target=shutdown, args=(connections, pmqueues, bmqueue))
+    sd.start()
 
     refresh = Thread(target=update, args=(finished,))
     refresh.start()
-
     conn_nbr = 0
     serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serv.bind(('0.0.0.0', 8080))
     serv.listen(5)
     while True:
         conn, addr = serv.accept()
+        connections.append(conn)
         conn_nbr += 1
         print("Client " + str(conn_nbr) + " connected.")
         handler = Thread(target=connection_handler, args=(conn, addr, conn_nbr, mutex, players, pmqueues))
