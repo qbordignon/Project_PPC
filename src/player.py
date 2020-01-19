@@ -9,14 +9,14 @@ import sysv_ipc
 import subprocess
 import os
 from card import string_to_card
-import tkinter
 
 k = -1
 
 class Player(Process):
-    def __init__(self, conn, draw, mutex, id, bmq_key):
+    def __init__(self, conn, state, draw, mutex, id, bmq_key):
         super().__init__()
         self.conn = conn
+        self.state = state
         self.mutex = mutex
         self.draw = draw
         self.id = id
@@ -36,28 +36,27 @@ class Player(Process):
                 print("Victoire")
             else:
                 print("Défaite")
-            time.sleep(5)
             sys.exit()
 
-    def notify(self, state):
-        self.conn.send(str(state).encode())
-        str_hand = ""
-        for c in self.hand:
-            str_hand += str(c) + "   "
-        self.conn.send(str_hand.encode())
-        '''
-        print("Main :")
-        for c in self.hand:
-            print(c, end=' ')
-        print("")
-        nums = ""
-        for i in range(1, len(self.hand) + 1):
-            nums += (" " + str(i))
-        print(nums)
-        print("Jouez !")
-        '''
 
+    # Envoie l'état de la partie au client sous la forme {[Carte du Milieu][Main du joueur]}
+    def notify(self):
+        str_cards = str(self.state)
+        for c in self.hand:
+            str_cards += " " + str(c)
+        self.conn.send(str_cards.encode())
+    
     def next_move(self):
+        while True:
+            print("Waiting - Player's move")
+            from_client = self.conn.recv(4096)
+            card = from_client.decode()
+            data = str(card) + " " + str(self.id)
+            print("Card Played & id " + data)
+            self.board_mq.send(data.encode())
+
+
+    '''
         global k
         print("Entrez la position de la carte à jouer: ")
         k = -1
@@ -67,6 +66,7 @@ class Player(Process):
             except ValueError:
                 print("Invalide, un entier était attendu")
         os.kill(os.getpid(), signal.SIGCHLD)
+    
 
         
     def handler_chld(self, sig, frame):
@@ -76,42 +76,40 @@ class Player(Process):
             message = data.encode()
             self.board_mq.send(message)
 
-
+    '''
 
     def run(self):
     # "gnome-terminal"]).pid
         # print(pid)
         signal.signal(signal.SIGINT, self.handler_int)
-        signal.signal(signal.SIGCHLD, self.handler_chld)
+        # signal.signal(signal.SIGCHLD, self.handler_chld)
         my_mq = sysv_ipc.MessageQueue(100 + self.id)
+
+        play_t = Thread(target=self.next_move)
+        play_t.start()
+
+        notify_t = Thread(target = self.notify, args = ())
+        notify_t.start()
 
         while True:
             #while my_mq.empty():
             #    continue
+            print("Waiting - State from board")
             message, t = my_mq.receive()
             data = message.decode()
-            print(data)
-            if bool(data) == False:
+            if data == "False":
+                print("Warning - Board didn't accept last move.")
                 self.draw_card()
+                notify_t = Thread(target = self.notify, args = ())
+                notify_t.start()
             else:
-                state = string_to_card(data)
-                for c in self.hand:
-                    if c == state:
-                        hand.remove(c)
-            
-            notify_t = Thread(target = self.notify, args = (state,))
-            notify_t.start()
-            time.sleep(5)
-            '''
-            play_t = Thread(target=self.next_move)
-            play_t.start()
-            '''
+                new_state = string_to_card(data)
+                if new_state != self.state:
+                    self.state = string_to_card(data)
+                    for c in self.hand:
+                        if c == self.state:
+                            hand.remove(c)
+                    notify_t = Thread(target = self.notify, args = ())
+                    notify_t.start()
 
-            # k = None # LA CARTE SELECTIONNEE
-
-            # with mutex:
-            #    mq.send(self.hand[k-1])
-
-            #Libération des autres process sans qu'ils ne jouent
-
-            notify_t.join()
+            time.sleep(3)

@@ -19,6 +19,15 @@ pmqueues = []
 bmqueue = None
 ID_LAST_PLAYER = 0
 NB_PLAYERS = 2
+finished = False
+new_state = False
+
+def state_updater():
+    global state
+    global pmqueues
+    global finished
+    for m in pmqueues:
+        m.send(str(state).encode())
 
 
 # Fonction de rafraîchissement
@@ -28,27 +37,28 @@ def update(finished):
         global state
         global pmqueues
         global bmqueue
+        global new_state
+        if new_state:
+            state_t = Thread(target=state_updater, args=())
+            state_t.start()
+            new_state = False
 
-        # Envoie l'état du board
-        for m in pmqueues:
-            m.send(str(state).encode())
-
-        # A adapter
-        '''
+        print("Waiting - Card from player")
         message, t = bmqueue.receive()
         data = message.decode()
-        print(data)
         array = data.split(" ")
         player_id = int(array[1])
         card = string_to_card(array[0])
 
         if confirm(state, card): # Fonction de validation à coder
             state = card
+            print("new state !")
+            new_state = True
         else:
             ok = False
+            print("wrong move !")
             message = str(ok).encode()
             pmqueues[player_id - 1].send(message)
-        '''
 
 
     
@@ -57,13 +67,13 @@ def update(finished):
 def confirm(state, card):
     return state.value == card.value or ((state.value - 1 == card.value or state.value + 1 == card.value) and state.color == card.color)
 
-def connection_handler(conn, addr, conn_nbr, mutex, players, pmqueues):
-    from_client = b''
+def connection_handler(conn, mutex, players, pmqueues):
     global ID_LAST_PLAYER
     global draw
     global bmqkey
+    global state
     ID_LAST_PLAYER += 1
-    player = Player(conn, draw, mutex, ID_LAST_PLAYER, bmqkey)
+    player = Player(conn, state, draw, mutex, ID_LAST_PLAYER, bmqkey)
     players.append(player)
 
     try:
@@ -90,7 +100,7 @@ def connection_handler(conn, addr, conn_nbr, mutex, players, pmqueues):
 def shutdown(connections, pmqueues, bmqueue):
     key = ''
     while key != 'q':
-        key = str(input("Press q to shutdown server.\n>"))
+        key = str(input("Input q to shutdown server.\n"))
 
     # Fermeture des connexions
     for conn in connections:
@@ -119,6 +129,7 @@ if __name__ == "__main__" :
 
     # Initialise le board 
     state = draw.pop(0)
+    new_state = True
 
     try:
         bmqueue = sysv_ipc.MessageQueue(bmqkey, sysv_ipc.IPC_CREX)
@@ -131,6 +142,7 @@ if __name__ == "__main__" :
 
     refresh = Thread(target=update, args=(finished,))
     refresh.start()
+
     conn_nbr = 0
     serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serv.bind(('0.0.0.0', 8080))
@@ -140,7 +152,7 @@ if __name__ == "__main__" :
         connections.append(conn)
         conn_nbr += 1
         print("Client " + str(conn_nbr) + " connected.")
-        handler = Thread(target=connection_handler, args=(conn, addr, conn_nbr, mutex, players, pmqueues))
+        handler = Thread(target=connection_handler, args=(conn, mutex, players, pmqueues))
         handler.start()
     # Imaginons : 2 joueurs
     '''
