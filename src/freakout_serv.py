@@ -1,13 +1,12 @@
 #Classe serveur
 
-from multiprocessing import Process, Lock, Manager
-# from multiprocessing.sharedctypes import *
+from multiprocessing import Process, Lock, Manager, Value
 from player import Player
 from card import *
 import sysv_ipc
 import sys
 import socket
-from threading import Thread
+from threading import Thread, Timer
 import os
 import signal
 
@@ -18,7 +17,6 @@ bmqkey = 699
 pmqueues = []
 bmqueue = None
 ID_LAST_PLAYER = 0
-NB_PLAYERS = 2
 finished = False
 new_state = False
 
@@ -37,41 +35,42 @@ def update(finished):
         global pmqueues
         global bmqueue
         global new_state
+        global timer
         if new_state:
             state_t = Thread(target=state_updater, args=())
             state_t.start()
             new_state = False
 
-        print("Waiting - Card from player")
+        # print("Waiting - Card from player")
         message, t = bmqueue.receive()
+        timer.cancel()
+        timer = Timer(10, timeout)
+        timer.start()
         data = message.decode()
         array = data.split(" ")
         player_id = int(array[1])
         card = string_to_card(array[0])
 
-        if confirm(state, card): # Fonction de validation à coder
+        if confirm(state, card):
             state = card
-            print("new state !")
+            # print("new state !")
             new_state = True
         else:
-            ok = False
-            print("wrong move !")
-            message = str(ok).encode()
-            pmqueues[player_id - 1].send(message)
+            data = "draw"
+            message = data.encode()
+            pmqueues[player_id - 1].send(data)
 
-
-    
 
 # Une fonction permettant de valider ou d'invalider un coup
 def confirm(state, card):
-    return (state.value == card.value or (((int(state.value) - 1) == int(card.value) or (int(state.value) + 1) == int(card.value)) and state.color == card.color))
+    return (state.value == card.value or (((int(state.value) - 1) % 10 == int(card.value) or (int(state.value) + 1) % 10 == int(card.value)) and state.color == card.color))
 
-def connection_handler(conn, draw, mutex, players, pmqueues):
+def connection_handler(conn, winner, draw, mutex, players, pmqueues):
     global ID_LAST_PLAYER
     global bmqkey
     global state
     ID_LAST_PLAYER += 1
-    player = Player(conn, state, draw, mutex, ID_LAST_PLAYER, bmqkey)
+    player = Player(conn, winner, state, draw, mutex, ID_LAST_PLAYER, bmqkey)
     players.append(player)
 
     try:
@@ -99,7 +98,15 @@ def shutdown(connections, pmqueues, bmqueue):
 
     os.kill(os.getpid(), signal.SIGINT)
     sys.exit(1) # FERMER LE SERV PROPREMENT
-        
+
+def timeout():
+    global pmqueues
+    print("TIMEOUT")
+    message = "draw"
+    for q in pmqueues:
+        q.send(message.encode())
+    timer = Timer(10, timeout)
+    timer.start()
 
 if __name__ == "__main__" :
     with Manager() as manager:
@@ -108,7 +115,7 @@ if __name__ == "__main__" :
         # Verrou pour droit de jouer
         mutex = Lock()
         # Bool de fin de partie
-        finished = False
+        winner = Value("i", 0)
         
         connections = []
         players = []
@@ -130,6 +137,9 @@ if __name__ == "__main__" :
         refresh = Thread(target=update, args=(finished,))
         refresh.start()
 
+        timer = Timer(10, timeout)
+        timer.start()
+
         conn_nbr = 0
         serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         serv.bind(('0.0.0.0', 8080))
@@ -139,7 +149,7 @@ if __name__ == "__main__" :
             connections.append(conn)
             conn_nbr += 1
             print("Client " + str(conn_nbr) + " connected.")
-            handler = Thread(target=connection_handler, args=(conn, draw, mutex, players, pmqueues))
+            handler = Thread(target=connection_handler, args=(conn, winner, draw, mutex, players, pmqueues))
             handler.start()
 
         # Fonction de rafrâichissement

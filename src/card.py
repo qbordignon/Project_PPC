@@ -27,9 +27,10 @@ class Card():
 def generate_draw():
     draw = []
     for i in range(0, 10):
-        draw.append(Card(str(i), "R"))
-    for j in range(0, 10):
-        draw.append(Card(str(j), "B"))
+        # draw.append(Card(str(i), "R"))
+        # draw.append(Card(str(i), "B"))
+        # draw.append(Card(str(i), "J"))
+        draw.append(Card(str(i), "V"))
     random.shuffle(draw)
     return draw
 

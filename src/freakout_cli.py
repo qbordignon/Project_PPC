@@ -4,24 +4,34 @@ from threading import Thread
 import signal
 import os
 import sys
+import time
 
 client = None
-txt_data = ""
+ending_messages = ["Gagné!", "Perdu..."]
+finished = False
+array_data = []
 
 def play_card(card):
     global client
-    print("Clicked - " + card.get())
+    # print("Clicked - " + card.get())
     client.send(card.get().encode())
 
 def handle_notifications():
-    global txt_data
-    while True:
-        print("Waiting - Data from server")
+    global client
+    global ending_messages
+    global finished
+    global array_data
+    while not finished:
+        # print("Waiting - Data from server")
         data = client.recv(4096)
         txt_data = data.decode()
         if txt_data == "":
             os.kill(os.getpid(), signal.SIGTERM)
             sys.exit(1) # FERMER LE CLI PROPREMENT
+        array_data = txt_data.split(" ")
+        if len(array_data) > 1:
+            if array_data[1] in ending_messages:
+                finished = True
         
 
 
@@ -46,7 +56,9 @@ if __name__ == '__main__':
     card6 = StringVar()
     card7 = StringVar()
     card8 = StringVar()
-    cards = (card1, card2, card3, card4, card5, card6, card7, card8)
+    card9 = StringVar()
+    card10 = StringVar()
+    cards = (card1, card2, card3, card4, card5, card6, card7, card8, card9, card10)
 
     top = Frame(window, bg='#114020')
     middle = Frame(window, bg='#114020')
@@ -75,6 +87,8 @@ if __name__ == '__main__':
     card_button6 = Button(window, textvariable=card6, command=lambda : play_card(card6), font=("Helvetica", 30), bg='white', fg='black')
     card_button7 = Button(window, textvariable=card7, command=lambda : play_card(card7), font=("Helvetica", 30), bg='white', fg='black')
     card_button8 = Button(window, textvariable=card8, command=lambda : play_card(card8), font=("Helvetica", 30), bg='white', fg='black')
+    card_button9 = Button(window, textvariable=card9, command=lambda : play_card(card9), font=("Helvetica", 30), bg='white', fg='black')
+    card_button10 = Button(window, textvariable=card10, command=lambda : play_card(card10), font=("Helvetica", 30), bg='white', fg='black')
     card_button1.pack(in_=bottom, side=LEFT, expand=True)
     card_button2.pack(in_=bottom, side=LEFT, expand=True)
     card_button3.pack(in_=bottom, side=LEFT, expand=True)
@@ -83,6 +97,8 @@ if __name__ == '__main__':
     card_button6.pack(in_=bottom, side=LEFT, expand=True)
     card_button7.pack(in_=bottom, side=LEFT, expand=True)
     card_button8.pack(in_=bottom, side=LEFT, expand=True)
+    card_button9.pack(in_=bottom, side=LEFT, expand=True)
+    card_button10.pack(in_=bottom, side=LEFT, expand=True)
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(('0.0.0.0', 8080))
@@ -95,19 +111,27 @@ if __name__ == '__main__':
     feedback.set("Jouez !")
 
     while True:
-        array_data = txt_data.split(" ")
         if len(array_data) > 0:
-            txt_state = array_data[0]
-            state.set(txt_state)
-            array_hand = array_data[1:]
-            i = 0
-            while i < len(cards):
-                if i < len(array_hand):
-                    cards[i].set(array_hand[i])
+            state.set(array_data[0])
+            if len(array_data) > 1:
+                if finished:
+                    feedback.set(array_data[1])
+                    for c in cards:
+                        c.set("  ")
+                    window.update()
+                    notification_t.join()
+                    time.sleep(5)
+                    client.close()
+                    window.destroy()
+                    sys.exit(1)
                 else:
-                    cards[i].set("")
-                i+=1
+                    array_hand = array_data[1:]
+                    i = 0
+                    while i < len(cards):
+                        if i < len(array_hand):
+                            cards[i].set(array_hand[i])
+                        else:
+                            cards[i].set("  ")
+                        i+=1
         # Affichage fenêtre
         window.update()
-
-    client.close()
