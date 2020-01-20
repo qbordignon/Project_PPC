@@ -46,7 +46,7 @@ if __name__ == '__main__':
     window.minsize(700, 500)
     window.config(background='#114020')
 
-    state = StringVar()
+    board = StringVar()
     feedback = StringVar()
     card1 = StringVar()
     card2 = StringVar()
@@ -69,9 +69,9 @@ if __name__ == '__main__':
 
     # create the widgets for the top part of the GUI,
     # and lay them out
-    label_state = Label(window, textvariable=state, font=("Helvetica", 40), bg='white')
-    label_state.pack()
-    label_state.pack(in_=top)
+    label_board = Label(window, textvariable=board, font=("Helvetica", 40), bg='white')
+    label_board.pack()
+    label_board.pack(in_=top)
 
     label_feedback = Label(window, textvariable=feedback, pady=50, font=("Helvetica", 30), bg='#114020')
     label_feedback.pack()
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     while True:
         if len(array_data) > 0:
-            state.set(array_data[0])
+            board.set(array_data[0])
             if len(array_data) > 1:
                 if finished:
                     feedback.set(array_data[1])

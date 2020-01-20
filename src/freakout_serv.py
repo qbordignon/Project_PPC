@@ -1,5 +1,3 @@
-#Classe serveur
-
 from multiprocessing import Process, Lock, Manager, Value
 from player import Player
 from card import *
@@ -11,35 +9,31 @@ import os
 import signal
 
 draw = []
-state = None
-c = True
 bmqkey = 699
 pmqueues = []
 bmqueue = None
 ID_LAST_PLAYER = 0
 finished = False
-new_state = False
+new_board = False
 
-def state_updater():
-    global state
+def board_updater(board):
     global pmqueues
     global finished
     for m in pmqueues:
-        m.send(str(state).encode())
+        m.send(str(board).encode())
 
 
 # Fonction de rafraîchissement
-def update(finished):
+def update(finished, board):
     while not finished:
-        global state
         global pmqueues
         global bmqueue
-        global new_state
+        global new_board
         global timer
-        if new_state:
-            state_t = Thread(target=state_updater, args=())
-            state_t.start()
-            new_state = False
+        if new_board:
+            board_t = Thread(target=board_updater, args=(board,))
+            board_t.start()
+            new_board = False
 
         # print("Waiting - Card from player")
         message, t = bmqueue.receive()
@@ -51,10 +45,10 @@ def update(finished):
         player_id = int(array[1])
         card = string_to_card(array[0])
 
-        if confirm(state, card):
-            state = card
-            # print("new state !")
-            new_state = True
+        if confirm(board, card):
+            board = card
+            # print("new board !")
+            new_board = True
         else:
             data = "draw"
             message = data.encode()
@@ -62,15 +56,15 @@ def update(finished):
 
 
 # Une fonction permettant de valider ou d'invalider un coup
-def confirm(state, card):
-    return (state.value == card.value or (((int(state.value) - 1) % 10 == int(card.value) or (int(state.value) + 1) % 10 == int(card.value)) and state.color == card.color))
+def confirm(board, card):
+    return (board.value == card.value or (((int(board.value) - 1) % 10 == int(card.value) or (int(board.value) + 1) % 10 == int(card.value)) and board.color == card.color))
 
 def connection_handler(conn, winner, draw, mutex, players, pmqueues):
     global ID_LAST_PLAYER
     global bmqkey
-    global state
+    global board
     ID_LAST_PLAYER += 1
-    player = Player(conn, winner, state, draw, mutex, ID_LAST_PLAYER, bmqkey)
+    player = Player(conn, winner, board, draw, mutex, ID_LAST_PLAYER, bmqkey)
     players.append(player)
 
     try:
@@ -122,8 +116,8 @@ if __name__ == "__main__" :
         pmqueues = []
 
         # Initialise le board 
-        state = draw.pop(0)
-        new_state = True
+        board = draw.pop(0)
+        new_board = True
 
         try:
             bmqueue = sysv_ipc.MessageQueue(bmqkey, sysv_ipc.IPC_CREX)
@@ -134,7 +128,7 @@ if __name__ == "__main__" :
         sd = Thread(target=shutdown, args=(connections, pmqueues, bmqueue))
         sd.start()
 
-        refresh = Thread(target=update, args=(finished,))
+        refresh = Thread(target=update, args=(finished, board))
         refresh.start()
 
         timer = Timer(10, timeout)

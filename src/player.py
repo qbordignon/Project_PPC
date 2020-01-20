@@ -9,12 +9,14 @@ import subprocess
 import os
 from card import string_to_card
 
+my_mq = None
+
 class Player(Process):
-    def __init__(self, conn, winner, state, draw, mutex, id, bmq_key):
+    def __init__(self, conn, winner, board, draw, mutex, id, bmq_key):
         super().__init__()
         self.conn = conn
         self.winner = winner
-        self.state = state
+        self.board = board
         self.mutex = mutex
         self.draw = draw
         self.id = id
@@ -31,9 +33,9 @@ class Player(Process):
                 self.hand.append(self.draw.pop(0))
 
 
-    # Envoie l'état de la partie au client sous la forme {[Carte du Milieu][Main du joueur]}
+    # Envoie l'état de la partie au client sous la forme {[Carte du Milieu][Main du joueur]} ou {[Carte du Milieu][Gagné / Perdu]} si un vainqueur a été désigné
     def notify(self):
-        message = str(self.state)
+        message = str(self.board)
         if self.winner.value:
             if self.winner.value == self.id:
                 message += " Gagné!"
@@ -41,6 +43,9 @@ class Player(Process):
                 message += " Perdu..."
             self.conn.send(message.encode())
             self.conn.close()
+            self.board_mq.remove()
+            global my_mq
+            my_mq.remove()
             os.kill(os.getppid(), signal.SIGTERM)
             os.kill(os.getpid(), signal.SIGTERM)
 
@@ -59,17 +64,19 @@ class Player(Process):
             self.board_mq.send(data.encode())
 
     def run(self):
-
+        global my_mq
         my_mq = sysv_ipc.MessageQueue(100 + self.id)
 
+        # Thread gérant les actions du joueur
         play_t = Thread(target=self.next_move)
         play_t.start()
 
+        # Thread gérant l'envoi de la première notification (initialisation de la partie)
         notify_t = Thread(target = self.notify, args = ())
         notify_t.start()
 
         while True:
-            # print("Waiting - State from board")
+            # print("Waiting - board from board")
             message, t = my_mq.receive()
             data = message.decode()
             if data == "draw":
@@ -78,11 +85,11 @@ class Player(Process):
                 notify_t = Thread(target = self.notify, args = ())
                 notify_t.start()
             else:
-                new_state = string_to_card(data)
-                if new_state != self.state:
-                    self.state = new_state
-                    if self.state in self.hand:
-                        self.hand.remove(self.state)
+                new_board = string_to_card(data)
+                if new_board != self.board:
+                    self.board = new_board
+                    if self.board in self.hand:
+                        self.hand.remove(self.board)
                     if len(self.hand) == 0:
                         with self.mutex:
                             self.winner.value = self.id
