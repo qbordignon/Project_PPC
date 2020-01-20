@@ -19,6 +19,8 @@ class Player(Process):
         self.state = state
         self.mutex = mutex
         self.draw = draw
+        for c in draw:
+            print(c)
         self.id = id
         self.bmq_key = bmq_key
         self.board_mq = sysv_ipc.MessageQueue(self.bmq_key)
@@ -27,8 +29,14 @@ class Player(Process):
         for i in range(0,5):
             self.draw_card()
 
+        print("Après pioche :")
+        for c in draw:
+            print(c)
+
     def draw_card(self):
-        self.hand.append(self.draw.pop(0))
+        if len(self.draw) > 0:
+            with self.mutex:
+                self.hand.append(self.draw.pop(0))
 
     def handler_int(self, sig, frame):
         if sig == signal.SIGINT:
@@ -105,10 +113,9 @@ class Player(Process):
             else:
                 new_state = string_to_card(data)
                 if new_state != self.state:
-                    self.state = string_to_card(data)
-                    for c in self.hand:
-                        if c == self.state:
-                            hand.remove(c)
+                    self.state = new_state
+                    if self.state in self.hand:
+                        self.hand.remove(self.state)
                     notify_t = Thread(target = self.notify, args = ())
                     notify_t.start()
 

@@ -33,7 +33,6 @@ def state_updater():
 # Fonction de rafraîchissement
 def update(finished):
     while not finished:
-        global draw
         global state
         global pmqueues
         global bmqueue
@@ -65,11 +64,10 @@ def update(finished):
 
 # Une fonction permettant de valider ou d'invalider un coup
 def confirm(state, card):
-    return state.value == card.value or ((state.value - 1 == card.value or state.value + 1 == card.value) and state.color == card.color)
+    return (state.value == card.value or (((int(state.value) - 1) == int(card.value) or (int(state.value) + 1) == int(card.value)) and state.color == card.color))
 
-def connection_handler(conn, mutex, players, pmqueues):
+def connection_handler(conn, draw, mutex, players, pmqueues):
     global ID_LAST_PLAYER
-    global draw
     global bmqkey
     global state
     ID_LAST_PLAYER += 1
@@ -152,7 +150,7 @@ if __name__ == "__main__" :
         connections.append(conn)
         conn_nbr += 1
         print("Client " + str(conn_nbr) + " connected.")
-        handler = Thread(target=connection_handler, args=(conn, mutex, players, pmqueues))
+        handler = Thread(target=connection_handler, args=(conn, draw, mutex, players, pmqueues))
         handler.start()
     # Imaginons : 2 joueurs
     '''

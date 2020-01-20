@@ -19,16 +19,17 @@ class Card():
             return False
 
     def __str__(self):
-        return str(self.value) + self.color
+        return self.value + self.color
 
-    
+    def __eq__(self, card):
+        return (self.value == card.value and self.color == card.color)
 
 def generate_draw():
     draw = []
-    for i in range(1, 11):
-        draw.append(Card(i, "R"))
-    for j in range(1, 11):
-        draw.append(Card(j, "B"))
+    for i in range(0, 10):
+        draw.append(Card(str(i), "R"))
+    for j in range(0, 10):
+        draw.append(Card(str(j), "B"))
     random.shuffle(draw)
     return draw
 
@@ -37,7 +38,7 @@ def string_to_card(string):
 
 
 if __name__ == "__main__":
-    card_1 = Card(3, "R")
-    card_2 = Card(1, "R")
+    card_1 = Card("3", "R")
+    card_2 = Card("1", "R")
     print(card_1.is_valid(card_2))
     draw = generate_draw()
