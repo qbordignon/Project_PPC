@@ -1,6 +1,6 @@
 #Classe serveur
 
-from multiprocessing import Process, Lock
+from multiprocessing import Process, Lock, Manager
 # from multiprocessing.sharedctypes import *
 from player import Player
 from card import *
@@ -82,18 +82,6 @@ def connection_handler(conn, draw, mutex, players, pmqueues):
 
     player.start()
 
-    
-    '''
-    while True:
-        data = conn.recv(4096)
-        if not data: break
-        from_client += data
-        print(from_client)
-        time.sleep(10)
-        conn.send(b'I am SERVER\n')
-    conn.close()
-    print('Client ' + str(conn_nbr) + ' disconnected')
-    '''
 
 def shutdown(connections, pmqueues, bmqueue):
     key = ''
@@ -114,73 +102,56 @@ def shutdown(connections, pmqueues, bmqueue):
         
 
 if __name__ == "__main__" :
-    # Crée la pioche
-    draw = generate_draw()
-    # Verrou pour droit de jouer
-    mutex = Lock()
-    # Bool de fin de partie
-    finished = False
-    
-    connections = []
-    players = []
-    pmqueues = []
+    with Manager() as manager:
+        # Crée la pioche
+        draw = manager.list(generate_draw())
+        # Verrou pour droit de jouer
+        mutex = Lock()
+        # Bool de fin de partie
+        finished = False
+        
+        connections = []
+        players = []
+        pmqueues = []
 
-    # Initialise le board 
-    state = draw.pop(0)
-    new_state = True
+        # Initialise le board 
+        state = draw.pop(0)
+        new_state = True
 
-    try:
-        bmqueue = sysv_ipc.MessageQueue(bmqkey, sysv_ipc.IPC_CREX)
-    except sysv_ipc.ExistentialError:
-        print("Message queue", bmqkey, "already exists, terminating.")
-        sys.exit(1)
-
-    sd = Thread(target=shutdown, args=(connections, pmqueues, bmqueue))
-    sd.start()
-
-    refresh = Thread(target=update, args=(finished,))
-    refresh.start()
-
-    conn_nbr = 0
-    serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    serv.bind(('0.0.0.0', 8080))
-    serv.listen(5)
-    while True:
-        conn, addr = serv.accept()
-        connections.append(conn)
-        conn_nbr += 1
-        print("Client " + str(conn_nbr) + " connected.")
-        handler = Thread(target=connection_handler, args=(conn, draw, mutex, players, pmqueues))
-        handler.start()
-    # Imaginons : 2 joueurs
-    '''
-    
-    for i in range(0, NB_PLAYERS):
-        ID_LAST_PLAYER += 1
-        players.append(Player(draw, mutex, ID_LAST_PLAYER, bmqkey))
-
-    # Tableau de queues de messages (une par joueur)
-    
-    # Création d'une queue de message par joueur
-    for p in players:
-        p.start()
         try:
-            pmqueues.append(sysv_ipc.MessageQueue(100 + p.id, sysv_ipc.IPC_CREX))
+            bmqueue = sysv_ipc.MessageQueue(bmqkey, sysv_ipc.IPC_CREX)
         except sysv_ipc.ExistentialError:
-            print("Message queue", 100 + p.id, "already exists, terminating.")
+            print("Message queue", bmqkey, "already exists, terminating.")
             sys.exit(1)
-    '''
 
-    # Fonction de rafrâichissement
-    while not finished:
-        update()
+        sd = Thread(target=shutdown, args=(connections, pmqueues, bmqueue))
+        sd.start()
 
-    # Attente des fils
-    for p in players:
-        p.join()
+        refresh = Thread(target=update, args=(finished,))
+        refresh.start()
 
-    # Fermeture des queues de message
-    for mq in pmqueues:
-        mq.remove()
-    bmqueue.remove()
+        conn_nbr = 0
+        serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        serv.bind(('0.0.0.0', 8080))
+        serv.listen(5)
+        while True:
+            conn, addr = serv.accept()
+            connections.append(conn)
+            conn_nbr += 1
+            print("Client " + str(conn_nbr) + " connected.")
+            handler = Thread(target=connection_handler, args=(conn, draw, mutex, players, pmqueues))
+            handler.start()
+
+        # Fonction de rafrâichissement
+        while not finished:
+            update()
+
+        # Attente des fils
+        for p in players:
+            p.join()
+
+        # Fermeture des queues de message
+        for mq in pmqueues:
+            mq.remove()
+        bmqueue.remove()
     

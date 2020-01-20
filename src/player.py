@@ -63,29 +63,6 @@ class Player(Process):
             print("Card Played & id " + data)
             self.board_mq.send(data.encode())
 
-
-    '''
-        global k
-        print("Entrez la position de la carte à jouer: ")
-        k = -1
-        while k < 1 and k >= len(self.hand):
-            try:
-                k = int(input("> "))
-            except ValueError:
-                print("Invalide, un entier était attendu")
-        os.kill(os.getpid(), signal.SIGCHLD)
-    
-
-        
-    def handler_chld(self, sig, frame):
-        if sig == signal.SIGCHLD:
-            global k
-            data = str(self.hand[k - 1]) + " " + str(self.id)
-            message = data.encode()
-            self.board_mq.send(message)
-
-    '''
-
     def run(self):
     # "gnome-terminal"]).pid
         # print(pid)
@@ -119,4 +96,3 @@ class Player(Process):
                     notify_t = Thread(target = self.notify, args = ())
                     notify_t.start()
 
-            time.sleep(3)
