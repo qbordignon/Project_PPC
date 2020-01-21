@@ -45,6 +45,7 @@ class Player(Process):
                 message += " " + ending_messages[1]
             self.conn.send(message.encode())
             self.conn.close()
+            time.sleep(3)
             self.board_mq.remove()
             global my_mq
             my_mq.remove()
