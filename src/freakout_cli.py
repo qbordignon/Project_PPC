@@ -6,16 +6,18 @@ import os
 import sys
 import time
 
-ending_messages = ["Gagné!", "Perdu..."]
-array_data = []
-finished = False
+ending_messages = ["Gagné!", "Perdu..."] # Liste des messages de fin de partie
+array_data = [] # Tableau de données reçues par le client
+finished = False # Indicateur de fin de partie
 
+# Fonction gérant l'envoi de la carte jouée au serveur (liée aux boutons de l'interface représentant les cartes du joueur)
 def play_card(card):
     global client
     # print("Clicked - " + card.get())
     client.send(card.get().encode())
 
-def handle_notifications(client):
+# Fonction gérant la réception d'une mise à jour émise par le serveur
+def update(client):
     global array_data
     global ending_messages
     global finished
@@ -23,15 +25,16 @@ def handle_notifications(client):
         # print("Waiting - Data from server")
         data = client.recv(4096)
         txt_data = data.decode()
-        if txt_data == "":
+        if txt_data == "": # Si aucune donnée n'a été reçue, la connexion a été perdue et on ferme le client
             os.kill(os.getpid(), signal.SIGTERM)
             sys.exit(1) # FERMER LE CLI PROPREMENT
         array_data = txt_data.split(" ")
         if len(array_data) > 1:
-            if array_data[1] in ending_messages:
+            if array_data[1] in ending_messages: # A la réception d'un message de fin de partie, le jeu s'arrête
                 finished = True
 
 if __name__ == '__main__':
+    # Connexion au serveur
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(('0.0.0.0', 8080))
 
@@ -42,10 +45,11 @@ if __name__ == '__main__':
     window.title("FREAKOUT !")
     window.geometry("1080x720")
     window.minsize(700, 500)
-    window.config(background='#300400')
+    window.config(background='#004a09')
 
+    # Variables textuelles de l'interface graphique
     board = StringVar()
-    feedback = StringVar()
+    status = StringVar()
     card1 = StringVar()
     card2 = StringVar()
     card3 = StringVar()
@@ -58,27 +62,24 @@ if __name__ == '__main__':
     card10 = StringVar()
     cards = (card1, card2, card3, card4, card5, card6, card7, card8, card9, card10)
 
-    top = Frame(window, bg='#300400')
-    middle = Frame(window, bg='#300400')
-    bottom = Frame(window, bg='#300400')
+    # Espaces d'affichage de la fenêtre
+    top = Frame(window, bg='#004a09')
+    middle = Frame(window, bg='#004a09')
+    bottom = Frame(window, bg='#004a09')
     top.pack(side=TOP)
     middle.pack()
     bottom.pack(side=BOTTOM, fill=BOTH, expand=True)
 
-    # create the widgets for the top part of the GUI,
-    # and lay them out
+    # Labels de l'interface graphique (Board et Statut de la partie)
     label_board = Label(window, textvariable=board, font=("Helvetica", 40), bg='white')
     label_board.pack()
     label_board.pack(in_=top)
 
-    label_feedback = Label(window, textvariable=feedback, pady=150, font=("Helvetica", 30), bg='#300400', fg='white')
-    label_feedback.pack()
-    label_feedback.pack(in_=middle)
+    label_status = Label(window, textvariable=status, pady=150, font=("Helvetica", 30), bg='#004a09', fg='white')
+    label_status.pack()
+    label_status.pack(in_=middle)
 
-    # create the widgets for the bottom part of the GUI,
-    # and lay them out
-    # create the widgets for the bottom part of the GUI,
-    # and lay them out
+    # Boutons représentant les cartes de la main du joueur. Un clic déclenche la fonction play_card().
     card_button1 = Button(window, textvariable=card1, command=lambda : play_card(card1), font=("Helvetica", 30), bg='white', fg='black')
     card_button2 = Button(window, textvariable=card2, command=lambda : play_card(card2), font=("Helvetica", 30), bg='white', fg='black')
     card_button3 = Button(window, textvariable=card3, command=lambda : play_card(card3), font=("Helvetica", 30), bg='white', fg='black')
@@ -96,17 +97,18 @@ if __name__ == '__main__':
 
     print("Get ready to FREAKOUT !!!")
 
-    notification_t = Thread(target=handle_notifications, args=(client,))
+    # Thread gérant la réception et le traitement des données envoyées par le serveur (Process Player)
+    notification_t = Thread(target=update, args=(client,))
     notification_t.start()
 
-    feedback.set("Jouez !")
+    status.set("Jouez !")
 
     while True:
         if len(array_data) > 0:
-            board.set(array_data[0])
+            board.set(array_data[0]) # Mise à jour du board
             if len(array_data) > 1:
-                if finished:
-                    feedback.set(array_data[1])
+                if finished: # Si la partie est terminée, mise à jour du statut affiché puis fermeture du client après 5 sec
+                    status.set(array_data[1])
                     for c in cards:
                         c.set("  ")
                     window.update()
@@ -115,7 +117,7 @@ if __name__ == '__main__':
                     client.close()
                     window.destroy()
                     sys.exit(1)
-                else:
+                else: # Sinon, mise à jour des boutons en fonction de la main du joueur
                     array_hand = array_data[1:]
                     i = 0
                     while i < len(cards):

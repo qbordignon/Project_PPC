@@ -10,6 +10,7 @@ import os
 from card import string_to_card
 
 my_mq = None
+ending_messages = ["Gagné!", "Perdu..."]
 
 class Player(Process):
     def __init__(self, conn, winner, board, draw, mutex, id, bmq_key):
@@ -36,11 +37,12 @@ class Player(Process):
     # Envoie l'état de la partie au client sous la forme {[Carte du Milieu][Main du joueur]} ou {[Carte du Milieu][Gagné / Perdu]} si un vainqueur a été désigné
     def notify(self):
         message = str(self.board)
-        if self.winner.value:
+        if self.winner.value or len(self.draw) == 0:
+            global ending_messages
             if self.winner.value == self.id:
-                message += " Gagné!"
+                message += " " + ending_messages[0]
             else:
-                message += " Perdu..."
+                message += " " + ending_messages[1]
             self.conn.send(message.encode())
             self.conn.close()
             self.board_mq.remove()
