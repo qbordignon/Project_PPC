@@ -48,7 +48,6 @@ class Player(Process):
             my_mq.remove()
             os.kill(os.getppid(), signal.SIGTERM)
             os.kill(os.getpid(), signal.SIGTERM)
-
         else:
             for c in self.hand:
                 message += " " + str(c)
@@ -91,8 +90,7 @@ class Player(Process):
                     if self.board in self.hand:
                         self.hand.remove(self.board)
                     if len(self.hand) == 0:
-                        with self.mutex:
-                            self.winner.value = self.id
+                        self.winner.value = self.id
                     notify_t = Thread(target = self.notify, args = ())
                     notify_t.start()
 

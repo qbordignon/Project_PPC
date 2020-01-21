@@ -6,21 +6,19 @@ import os
 import sys
 import time
 
-client = None
 ending_messages = ["Gagné!", "Perdu..."]
-finished = False
 array_data = []
+finished = False
 
 def play_card(card):
     global client
     # print("Clicked - " + card.get())
     client.send(card.get().encode())
 
-def handle_notifications():
-    global client
+def handle_notifications(client):
+    global array_data
     global ending_messages
     global finished
-    global array_data
     while not finished:
         # print("Waiting - Data from server")
         data = client.recv(4096)
@@ -32,10 +30,10 @@ def handle_notifications():
         if len(array_data) > 1:
             if array_data[1] in ending_messages:
                 finished = True
-        
-
 
 if __name__ == '__main__':
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(('0.0.0.0', 8080))
 
     # Ouverture fenêtre de jeu
     window = Tk()
@@ -44,7 +42,7 @@ if __name__ == '__main__':
     window.title("FREAKOUT !")
     window.geometry("1080x720")
     window.minsize(700, 500)
-    window.config(background='#114020')
+    window.config(background='#300400')
 
     board = StringVar()
     feedback = StringVar()
@@ -60,9 +58,9 @@ if __name__ == '__main__':
     card10 = StringVar()
     cards = (card1, card2, card3, card4, card5, card6, card7, card8, card9, card10)
 
-    top = Frame(window, bg='#114020')
-    middle = Frame(window, bg='#114020')
-    bottom = Frame(window, bg='#114020')
+    top = Frame(window, bg='#300400')
+    middle = Frame(window, bg='#300400')
+    bottom = Frame(window, bg='#300400')
     top.pack(side=TOP)
     middle.pack()
     bottom.pack(side=BOTTOM, fill=BOTH, expand=True)
@@ -73,10 +71,12 @@ if __name__ == '__main__':
     label_board.pack()
     label_board.pack(in_=top)
 
-    label_feedback = Label(window, textvariable=feedback, pady=50, font=("Helvetica", 30), bg='#114020')
+    label_feedback = Label(window, textvariable=feedback, pady=150, font=("Helvetica", 30), bg='#300400', fg='white')
     label_feedback.pack()
     label_feedback.pack(in_=middle)
 
+    # create the widgets for the bottom part of the GUI,
+    # and lay them out
     # create the widgets for the bottom part of the GUI,
     # and lay them out
     card_button1 = Button(window, textvariable=card1, command=lambda : play_card(card1), font=("Helvetica", 30), bg='white', fg='black')
@@ -89,23 +89,14 @@ if __name__ == '__main__':
     card_button8 = Button(window, textvariable=card8, command=lambda : play_card(card8), font=("Helvetica", 30), bg='white', fg='black')
     card_button9 = Button(window, textvariable=card9, command=lambda : play_card(card9), font=("Helvetica", 30), bg='white', fg='black')
     card_button10 = Button(window, textvariable=card10, command=lambda : play_card(card10), font=("Helvetica", 30), bg='white', fg='black')
-    card_button1.pack(in_=bottom, side=LEFT, expand=True)
-    card_button2.pack(in_=bottom, side=LEFT, expand=True)
-    card_button3.pack(in_=bottom, side=LEFT, expand=True)
-    card_button4.pack(in_=bottom, side=LEFT, expand=True)
-    card_button5.pack(in_=bottom, side=LEFT, expand=True)
-    card_button6.pack(in_=bottom, side=LEFT, expand=True)
-    card_button7.pack(in_=bottom, side=LEFT, expand=True)
-    card_button8.pack(in_=bottom, side=LEFT, expand=True)
-    card_button9.pack(in_=bottom, side=LEFT, expand=True)
-    card_button10.pack(in_=bottom, side=LEFT, expand=True)
+    buttons = (card_button1, card_button2, card_button3, card_button4, card_button5, card_button6, card_button7, card_button8, card_button9, card_button10)
 
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(('0.0.0.0', 8080))
+    for b in buttons:
+        b.pack(in_=bottom, side=LEFT, expand=True)
 
     print("Get ready to FREAKOUT !!!")
 
-    notification_t = Thread(target=handle_notifications, args=())
+    notification_t = Thread(target=handle_notifications, args=(client,))
     notification_t.start()
 
     feedback.set("Jouez !")
