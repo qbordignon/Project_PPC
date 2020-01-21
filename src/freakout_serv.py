@@ -21,7 +21,8 @@ def board_updater(finished, board, pmqueues):
 
 
 # Fonction de rafraîchissement du plateau de jeu
-def update(finished, board, pmqueues, bmqueue, new_board, timer):
+def update(finished, board, pmqueues, bmqueue, new_board):
+    global timer
     while not finished:
         if new_board:
             board_t = Thread(target=board_updater, args=(finished, board, pmqueues))
@@ -94,6 +95,7 @@ def shutdown(connections, pmqueues, bmqueue):
 # Fonction gérant l'expiration du compte à rebours du jeu
 # Si le compte à rebours arrive à 0, chaque joueur pioche une carte
 def timeout(pmqueues):
+    global timer
     message = "draw"
     for q in pmqueues:
         q.send(message.encode())
@@ -143,7 +145,7 @@ if __name__ == "__main__" :
         timer.start()
 
         # Thread de rafraîchissement de l'état du jeu
-        refresh = Thread(target=update, args=(finished, board, pmqueues, bmqueue, new_board, timer))
+        refresh = Thread(target=update, args=(finished, board, pmqueues, bmqueue, new_board))
         refresh.start()
 
         conn_nbr = 0 # Compteur de connexions
