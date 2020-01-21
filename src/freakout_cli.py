@@ -110,7 +110,7 @@ if __name__ == '__main__':
                 if finished: # Si la partie est terminée, mise à jour du statut affiché puis fermeture du client après 5 sec
                     status.set(array_data[1])
                     for c in cards:
-                        c.set("  ")
+                        c.set("__")
                     window.update()
                     notification_t.join()
                     time.sleep(5)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
                         if i < len(array_hand):
                             cards[i].set(array_hand[i])
                         else:
-                            cards[i].set("  ")
+                            cards[i].set("__")
                         i+=1
         # Affichage fenêtre
         window.update()

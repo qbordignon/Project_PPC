@@ -38,15 +38,16 @@ def update(finished, board, pmqueues, bmqueue, new_board):
         array = data.split(" ")
         if len(array) > 1:
             player_id = int(array[1])
-            card = string_to_card(array[0])
-            if confirm(board, card):
-                board = card
-                # print("new board !")
-                new_board = True
-            else:
-                data = "draw"
-                message = data.encode()
-                pmqueues[player_id - 1].send(data)
+            if not array[0] == "__":
+                card = string_to_card(array[0])
+                if confirm(board, card):
+                    board = card
+                    # print("new board !")
+                    new_board = True
+                else:
+                    data = "draw"
+                    message = data.encode()
+                    pmqueues[player_id - 1].send(data)
 
 
 # Fonction permettant de valider ou d'invalider un coup
