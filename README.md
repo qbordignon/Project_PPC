@@ -1,7 +1,7 @@
 # Freakout
 Projet de fin de module PPC visant à la réalisation d'un Jeu de Cartes en temps réel.
 
-Lancement: 
+Lancement:
 Notre mise en oeuvre suit un schéma classique client/serveur tcp.
 Placez-vous dans le répertoire src/ et lancez le serveur: python3 freakout_serv.py
 Puis toujours depuis src/ exécutez autant de clients que vous souhaitez de joueurs pour cette partie: python3 freakout_cli.py
